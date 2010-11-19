@@ -4,8 +4,8 @@
  * */
 
 require_once("JSON.php"); #PHP version 5.1 or less.
-$version = '1.1';
-$versionstr = 'version';
+$version = '2.0';
+$versionstr = 'jsonrpc';
 $json_rpc_error = 0;
 $json_rpc_errormsg = '';
 $json_rpc_current_request_id = '';
