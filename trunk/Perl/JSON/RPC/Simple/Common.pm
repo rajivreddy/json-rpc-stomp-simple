@@ -161,7 +161,7 @@ sub json_rpc_create_request {
 
 	my $json = new JSON;
 	my $request = $json->encode({
-		"$versionstr" => $version,
+		$versionstr => $version,
 		'method' => $method,
 		'params' => $params,
 		'id' => $id
@@ -176,7 +176,7 @@ sub json_rpc_create_response {
 	$error = undef if(defined($result));
 	my $json = new JSON;
 	return $json->encode({
-		'$versionstr' => $version,
+		$versionstr => $version,
 		'id' => $id,
 		'result' => $result,
 		'error' => $error
