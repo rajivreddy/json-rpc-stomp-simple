@@ -31,8 +31,8 @@ BEGIN {
 our @EXPORT_OK;
 
 # exported package globals go here
-our $version = '1.1';
-our $versionstr = 'version';
+our $version = '2.0';
+our $versionstr = 'jsonrpc';
 our $json_rpc_error = 0;
 our $json_rpc_errormsg = '';
 our $json_rpc_current_request_id = '';
