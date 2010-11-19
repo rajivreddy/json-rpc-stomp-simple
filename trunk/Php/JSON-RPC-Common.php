@@ -5,6 +5,7 @@
 
 require_once("JSON.php"); #PHP version 5.1 or less.
 $version = '1.1';
+$versionstr = 'version';
 $json_rpc_error = 0;
 $json_rpc_errormsg = '';
 $json_rpc_current_request_id = '';
@@ -57,6 +58,19 @@ function json_rpc_get_errstr() {
 	return "$json_rpc_error ($json_rpc_errormsg ${json_rpc_errormsgdefine[$json_rpc_error]})";
 }
 
+function json_rpc_set_version($v) {
+	global $versionstr,$version;
+	if($v === '1.1') {
+		$versionstr = 'version';
+		$version = '1.1';
+	} elsif($v === '2.0') {
+		$versionstr = 'jsonrpc';
+		$version = '2.0';
+	} else
+		return -1;
+	return 0;
+}
+
 function json_rpc_create_error($code,$msg = '') {
 	global $json_rpc_errormsgdefine;
 	return array(
@@ -68,11 +82,11 @@ function json_rpc_create_error($code,$msg = '') {
 }
 
 function json_rpc_handle_msg($funclist,$requestdata) {
-	global $version,$json_rpc_current_request_id;
+	global $version,$versionstr,$json_rpc_current_request_id;
 	$json = new Services_JSON(SERVICES_JSON_LOOSE_TYPE | SERVICES_JSON_SUPPRESS_ERRORS);
 	if (empty($requestdata))
 		return $json->encode(array(
-			'version' => $version,
+			$versionstr => $version,
 			'id' => null,
 			'result' => null,
 			'error' => json_rpc_create_error(JSON_RPC_ERR_INVALID_REQUEST)
@@ -80,28 +94,28 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 	$request = $json->decode($requestdata);
 	if (empty($request) || !is_array($request))
 		return $json->encode(array(
-			'version' => $version,
+			$versionstr => $version,
 			'id' => null,
 			'result' => null,
 			'error' => json_rpc_create_error(JSON_RPC_ERR_INVALID_REQUEST)
 		));
-	if (empty($request['version']) || $request['version'] != $version)
+	if (empty($request[$versionstr]) || $request[$versionstr] != $version)
 		return $json->encode(array(
-			'version' => $version,
+			$versionstr => $version,
 			'id' => (empty($request['id']) ? null : $request['id']),
 			'result' => null,
 			'error' => json_rpc_create_error(JSON_RPC_ERR_INVALID_VERSION)
 		));
 	if (empty($request['method']) || !preg_match('/^[a-zA-Z]\w*$/',$request['method']))
 		return $json->encode(array(
-			'version' => $version,
+			$versionstr => $version,
 			'id' => (!empty($request['id']) ? $request['id'] : null),
 			'result' => null,
 			'error' => json_rpc_create_error(JSON_RPC_ERR_INVALID_METHODNAME)
 		));
 	if(!empty($funclist) && empty($funclist[$request['method']]))
 		return $json->encode(array(
-			'version' => $version,
+			$versionstr => $version,
 			'id' => (empty($request['id']) ? null : $request['id']),
 			'result' => null,
 			'error' => json_rpc_create_error(JSON_RPC_ERR_UNLISTED_FUNCTION)
@@ -109,7 +123,7 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 
 	if(!function_exists($request['method']))
 		return $json->encode(array(
-			'version' => $version,
+			$versionstr => $version,
 			'id' => (empty($request['id']) ? null : $request['id']),
 			'result' => null,
 			'error' => json_rpc_create_error(JSON_RPC_ERR_INVALID_FUNCTION)
@@ -126,7 +140,7 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 			$json_rpc_current_request_id = ''; //Remove ID
 			if (!empty($request['id']))
 				return $json->encode(array (
-					'version' => $version,
+					$versionstr => $version,
 					'id' => $request['id'],
 					'result' => $result,
 					'error' => NULL
@@ -141,7 +155,7 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 			$json_rpc_current_request_id = ''; //Remove ID
 			if (!empty($request['id']))
 				return $json->encode(array(
-					'version' => $version,
+					$versionstr => $version,
 					'id' => $request['id'],
 					'result' => $result,
 					'error' => null
@@ -152,7 +166,7 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 	} catch (Exception $e) {
 		if (!empty($request['id']))
 			return $json->encode(array (
-				'version' => $version,
+				$versionstr => $version,
 				'id' => $request['id'],
 				'result' => null,
 				'error' => json_rpc_create_error(JSON_RPC_ERR_APPLICATION_ERROR,$e->getMessage())
@@ -163,7 +177,7 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 		}
 	}
 	return $json->encode(array(
-		'version' => $version,
+		$versionstr => $version,
 		'id' => null,
 		'result' => null,
 		'error' => json_rpc_create_error(JSON_RPC_ERR_INTERNAL_ERROR)
@@ -171,7 +185,7 @@ function json_rpc_handle_msg($funclist,$requestdata) {
 }
 
 function json_rpc_create_request($method,$params,$id = null) {
-	global $version,$json_rpc_error;
+	global $version,$versionstr,$json_rpc_error;
 	if (!is_scalar($method)) { #Method must be scalar.
 		$json_rpc_error = JSON_RPC_ERR_CALL_METHOD;
 		return null;
@@ -183,7 +197,7 @@ function json_rpc_create_request($method,$params,$id = null) {
 
 	$json = new Services_JSON();
 	$request = $json->encode(array(
-		'version' => $version,
+		$versionstr => $version,
 		'method' => $method,
 		'params' => $params,
 		'id' => $id
@@ -192,7 +206,7 @@ function json_rpc_create_request($method,$params,$id = null) {
 }
 
 function json_rpc_parse_response($responsedata,$requestid = null) {
-	global $version,$json_rpc_error,$json_rpc_errormsg,$json_rpc_errormsgdefine,
+	global $version,$versionstr,$json_rpc_error,$json_rpc_errormsg,$json_rpc_errormsgdefine,
 		$json_rpc_current_response_id;
 	$json = new Services_JSON(SERVICES_JSON_LOOSE_TYPE | SERVICES_JSON_SUPPRESS_ERRORS);
 	if (empty($responsedata)) {//empty message
@@ -204,7 +218,7 @@ function json_rpc_parse_response($responsedata,$requestid = null) {
 		$json_rpc_error = JSON_RPC_ERR_INVALID_RESPONSE;
 		return null;
 	}
-	if (empty($response['version']) || $response['version'] != $version) {
+	if (empty($response[$versionstr]) || $response[$versionstr] != $version) {
 		$json_rpc_error = JSON_RPC_ERR_INVALID_VERSION;
 		return null;
 	}

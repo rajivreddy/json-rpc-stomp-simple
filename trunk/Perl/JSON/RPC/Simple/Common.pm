@@ -89,7 +89,10 @@ sub json_rpc_set_version {
 	} elsif($v eq '2.0') {
 		$versionstr = 'jsonrpc';
 		$version = '2.0';
+	} else {
+		return -1;
 	}
+	return 0;
 }
 
 sub json_rpc_create_error {
