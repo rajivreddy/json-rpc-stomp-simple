@@ -32,6 +32,7 @@ our @EXPORT_OK;
 
 # exported package globals go here
 our $version = '1.1';
+our $versionstr = 'version';
 our $json_rpc_error = 0;
 our $json_rpc_errormsg = '';
 our $json_rpc_current_request_id = '';
@@ -79,6 +80,17 @@ JSON_RPC_ERR_CALL_PARAM() => 'Call param is not valid type.',
 JSON_RPC_ERR_INVALID_RESPONSEID() => 'Response ID is not same as requested ID',
 JSON_RPC_ERR_REMOTE_ERROR() => 'Remote Server Error Returned Code'
 );
+
+sub json_rpc_set_version {
+	my $v = shift;
+	if($v eq '1.1') {
+		$versionstr = 'version';
+		$version = '1.1';
+	} elsif($v eq '2.0') {
+		$versionstr = 'jsonrpc';
+		$version = '2.0';
+	}
+}
 
 sub json_rpc_create_error {
 	my ($code,$msg) = @_;
@@ -146,7 +158,7 @@ sub json_rpc_create_request {
 
 	my $json = new JSON;
 	my $request = $json->encode({
-		'version' => $version,
+		"$versionstr" => $version,
 		'method' => $method,
 		'params' => $params,
 		'id' => $id
@@ -161,7 +173,7 @@ sub json_rpc_create_response {
 	$error = undef if(defined($result));
 	my $json = new JSON;
 	return $json->encode({
-		'version' => $version,
+		'$versionstr' => $version,
 		'id' => $id,
 		'result' => $result,
 		'error' => $error
@@ -189,7 +201,7 @@ sub json_rpc_parse_request {
 			'error' => json_rpc_create_error(JSON_RPC_ERR_INVALID_REQUEST,$@)
 		};
 
-	(!defined($request->{'version'}) or $request->{'version'} ne $version)
+	(!defined($request->{$versionstr}) or $request->{$versionstr} ne $version)
 		and return {
 			'id' => ($request->{'id'} or undef),
 			'method' => undef,
@@ -234,7 +246,7 @@ sub json_rpc_parse_response {
 		$json_rpc_errormsg = $@;
 		return undef;
 	}
-	if (!defined($response->{'version'}) || $response->{'version'} ne $version) {
+	if (!defined($response->{$versionstr}) || $response->{$versionstr} ne $version) {
 		$json_rpc_error = JSON_RPC_ERR_INVALID_VERSION;
 		return undef;
 	}
