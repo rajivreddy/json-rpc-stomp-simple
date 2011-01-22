@@ -8,7 +8,7 @@ $json_rpc_tempqueue = '';
 $json_rpc_call_timeout = 10;
 $json_rpc_opt = null;
 
-function json_rpc_stomp_init($server = '',$subopt = null) {
+function json_rpc_stomp_init($server = '',$connopt = null, $subopt = null) {
 	global $json_rpc_opt,$json_rpc_error,$json_rpc_errormsg,$json_rpc_stompconn,$json_rpc_tempqueue;
 	$opt = array('ack'=>'client', //See Work around.
 		'activemq.prefetchSize' => 1,
@@ -22,7 +22,7 @@ function json_rpc_stomp_init($server = '',$subopt = null) {
 		$server = $json_rpc_stompserver;
 	$json_rpc_stompconn = new StompConnection($server);
 	// connect
-	if(!$json_rpc_stompconn->connect()) {
+	if(!$json_rpc_stompconn->connect($connopt)) {
 		$json_rpc_error = JSON_RPC_ERR_CONNECT_TRANSPORT;
 		$json_rpc_errormsg = $json_rpc_stompconn->error . "\n" .$json_rpc_stompconn->exception;
 		return false;

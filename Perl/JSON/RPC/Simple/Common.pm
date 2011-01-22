@@ -9,14 +9,14 @@ BEGIN {
    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 
    # set the version for version checking
-   $VERSION     = 1.00;
+   $VERSION     = 1.01;
    # if using RCS/CVS, this may be preferred
    $VERSION = sprintf "%d.%03d", q$Revision: 1.1 $ =~ /(\d+)/g;
 
    @ISA         = qw(Exporter);
    @EXPORT      = qw(
-    $version $json_rpc_error $json_rpc_errormsg %json_rpc_errormsgdefine
-   	$json_rpc_current_request_id $json_rpc_current_response_id $json_rpc_secure_mode
+    $version $json_rpc_error $json_rpc_errormsg %json_rpc_errormsgdefine $json_rpc_debug
+   	$json_rpc_current_request_id $json_rpc_current_response_id $json_rpc_secure_mode $json_rpc_call_timeout
 
     &json_rpc_create_error
    	&json_rpc_create_request &json_rpc_parse_request
@@ -33,7 +33,9 @@ our @EXPORT_OK;
 # exported package globals go here
 our $version = '2.0';
 our $versionstr = 'jsonrpc';
+our $json_rpc_debug = 0;
 our $json_rpc_error = 0;
+our $json_rpc_call_timeout = 0;
 our $json_rpc_errormsg = '';
 our $json_rpc_current_request_id = '';
 our $json_rpc_current_response_id = '';
