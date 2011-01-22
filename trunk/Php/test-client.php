@@ -2,7 +2,7 @@
 	require_once("JSON-RPC-Stomp-Client.php");
 	error_reporting(E_ERROR | E_WARNING | E_PARSE);
 	//error_reporting(E_ALL);
-	if(!json_rpc_stomp_init("tcp://localhost:61613"))
+	if(!json_rpc_stomp_init("tcp://localhost:61613", array( 'login' => 'user', 'passcode' => 'pass') ))
 		die("Error: $json_rpc_error ($json_rpc_errormsg ${json_rpc_errormsgdefine[$json_rpc_error]})\n");
 $start = time();
 for ($i = 0; $i < 1; $i++) {

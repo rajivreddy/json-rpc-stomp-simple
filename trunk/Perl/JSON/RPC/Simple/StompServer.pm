@@ -9,7 +9,7 @@ BEGIN {
    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 
    # set the version for version checking
-   $VERSION     = 1.00;
+   $VERSION     = 1.01;
    # if using RCS/CVS, this may be preferred
    $VERSION = sprintf "%d.%03d", q$Revision: 1.1 $ =~ /(\d+)/g;
 
@@ -38,7 +38,7 @@ END {
 }
 
 sub json_rpc_stomp_init {
-	my ($stompserver,$queuename,$subopt) = @_;
+	my ($stompserver,$queuename,$connopt,$subopt) = @_;
 	my $opt = { %{$defsubopt},
 		'destination' => '/queue/'.$queuename,
 	};
@@ -49,7 +49,8 @@ sub json_rpc_stomp_init {
 	return undef unless($stompserver =~ m|^(tcp://)?([\w\.\-]+):(\d+)\??.*$|);
 	#warn "Server $2:$3";
 	$stomp = Net::Stomp->new( { hostname => $2, port => $3 } );
-	$stomp->connect()
+	$connopt = { } unless ($connopt);
+    $stomp->connect($connopt)
 	and $stomp->subscribe($opt)
 	and return 1;
 	return undef;
@@ -73,13 +74,13 @@ sub json_rpc_stomp_handle_callback {
 
 		if ($msg->headers->{'reply-to'}) {
 			my $response = undef;
-			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n";
+			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n" if($json_rpc_debug);
 			my $request = json_rpc_parse_request($msg->body);
 			if(defined($request) && $request->{'method'}) { #call
 				my ($retval,$error,$errormsg) = &{$dispatchfunc}($request->{'method'},$request->{'params'},$request->{'id'});
 				$response = json_rpc_create_response($retval,
 					($error ? json_rpc_create_error($error,$errormsg):undef),$request->{'id'});
-				print STDERR "Got reply: $response\n";
+				print STDERR "Got reply: $response\n" if($json_rpc_debug);
 			} elsif(defined($request) && $request->{'error'}) { #error
 				$response = json_rpc_create_response(undef,$request->{'error'},$request->{'id'});
 			}
@@ -109,7 +110,7 @@ sub json_rpc_stomp_handle_hashcode {
 
 		if ($msg->headers->{'reply-to'}) {
 			my $response = undef;
-			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n";
+			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n" if($json_rpc_debug);
 			my $request = json_rpc_parse_request($msg->body);
 			if(defined($request) && $request->{'method'}) { #call
 				if (!defined($hashfunc->{$request->{'method'}})
@@ -120,7 +121,7 @@ sub json_rpc_stomp_handle_hashcode {
 					my ($retval,$error,$errormsg) = &{$hashfunc->{$request->{'method'}}}(@{$request->{'params'}});
 					$response = json_rpc_create_response($retval,
 						($error ? json_rpc_create_error($error,$errormsg):undef),$request->{'id'});
-					print STDERR "Got reply: $response\n";
+					print STDERR "Got reply: $response\n" if($json_rpc_debug);
 				}
 			} elsif(defined($request) && $request->{'error'}) { #error
 				$response = json_rpc_create_response(undef,$request->{'error'},$request->{'id'});
@@ -147,10 +148,10 @@ sub json_rpc_stomp_handle {
 		next if($msg->{command} ne 'MESSAGE');
 
 		if ($msg->headers->{'reply-to'}) {
-			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n";
+			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n" if($json_rpc_debug);
 			my $retval = json_rpc_handle_msg($module,$funclist,$msg->body);
 			if(defined($retval)) { #//reply
-				print STDERR "Got reply: $retval\n";
+				print STDERR "Got reply: $retval\n" if($json_rpc_debug);
 				$stomp->send({ destination => $msg->headers->{'reply-to'}, body => $retval });
 			}
 		} else {

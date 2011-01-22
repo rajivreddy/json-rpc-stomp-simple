@@ -9,7 +9,7 @@ BEGIN {
    our ($VERSION, @ISA, @EXPORT, @EXPORT_OK, %EXPORT_TAGS);
 
    # set the version for version checking
-   $VERSION     = 1.00;
+   $VERSION     = 1.01;
    # if using RCS/CVS, this may be preferred
    $VERSION = sprintf "%d.%03d", q$Revision: 1.1 $ =~ /(\d+)/g;
 
@@ -35,7 +35,7 @@ END {
 }
 
 sub json_rpc_stomp_init {
-	my ($stompserver,$subopt) = @_;
+	my ($stompserver,$connopt,$subopt) = @_;
 	$queuename = 'client'.$$.'.'.rand(100000);
 	my $opt = { %{$defsubopt},
 		'destination' => '/temp-queue/'.$queuename,
@@ -46,7 +46,8 @@ sub json_rpc_stomp_init {
 	return undef unless($stompserver =~ m|^(tcp://)?([\w\.\-]+):(\d+)\??.*$|);
 	#warn "Server $2:$3";
 	$stomp = Net::Stomp->new( { hostname => $2, port => $3 } );
-	$stomp->connect()
+	$connopt = { } unless ($connopt);
+    $stomp->connect($connopt)
 	and $stomp->subscribe($opt)
 	and return 1;
 	return undef;
@@ -64,7 +65,7 @@ sub json_rpc_call {
 
 	return undef unless ($request);
 
-	print "Sending request: ".$request."\n";
+	print STDERR "Sending request: ".$request."\n" if($json_rpc_debug);
 	$stomp->send(
 		{
 		    'destination' => "/queue/$queue",
@@ -72,12 +73,21 @@ sub json_rpc_call {
 		    'reply-to' => "/temp-queue/$queuename"} );
 
 	#Now wait for reply, blocked mode.
-	my $msg = $stomp->receive_frame;
+	my $msg;
+	if($json_rpc_call_timeout) {
+			print STDERR "Call $method with timeout $json_rpc_call_timeout\n" if($json_rpc_debug);
+			unless($stomp->can_read({ timeout => $json_rpc_call_timeout })) {
+					print STDERR "Call $method timeout\n" if($json_rpc_debug);
+					$json_rpc_error = JSON::RPC::Simple::Common::JSON_RPC_ERR_CALL_TIMEOUT;
+					return undef;
+			}
+	}
+	$msg = $stomp->receive_frame();
 	if ($msg) {
-		print "Reply: ".$msg->body."\n";
-		my $response = json_rpc_parse_response($msg->body,$id);
-		return undef unless ($response);
-		return $response;
+			print STDERR "Reply: ".$msg->body."\n" if($json_rpc_debug);
+			my $response = json_rpc_parse_response($msg->body,$id);
+			return undef unless ($response);
+			return $response;
 	}
 	$json_rpc_error = JSON::RPC::Simple::Common::JSON_RPC_ERR_CALL_RECEIVE;
 	return undef;

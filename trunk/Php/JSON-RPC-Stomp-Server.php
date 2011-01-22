@@ -5,7 +5,7 @@ require_once("Stomp.php");
 $json_rpc_stompconn = null;
 $json_rpc_rpcqueue = '';
 
-function json_rpc_stomp_handle($stompserver,$queuename, $funclist, $subopt = null) {
+function json_rpc_stomp_handle($stompserver,$queuename, $funclist, ,$connopt = null, $subopt = null) {
 	global $json_rpc_error,$json_rpc_errormsg,$json_rpc_stompconn,$json_rpc_rpcqueue;
 	$opt = array('ack'=>'auto','activemq.prefetchSize' => 10,
 		'activemq.dispatchAsync' => 'false' );
@@ -13,7 +13,7 @@ function json_rpc_stomp_handle($stompserver,$queuename, $funclist, $subopt = nul
 		$opt = array_merge($opt,$supoption);
 	$json_rpc_stompconn = new StompConnection($stompserver);
 	// connect
-	if(!$json_rpc_stompconn->connect()) {
+	if(!$json_rpc_stompconn->connect($connopt)) {
 		$json_rpc_error = JSON_RPC_ERR_CONNECT_TRANSPORT;
 		$json_rpc_errormsg = $json_rpc_stompconn->error . "\n" .$json_rpc_stompconn->exception;
 		return false;

@@ -37,7 +37,8 @@ function add($a,$b) {
 	if(!json_rpc_stomp_handle("tcp://10.36.14.205:61613","jsonrpc",
 		array(
 			'add' => 'a:int,b:int',
-			'subtract' => 'a:int,b:int' ) ))
+			'subtract' => 'a:int,b:int' ),
+		array( 'login' => 'user', 'passcode' => 'pass') ))
 		die("Error: $json_rpc_error ($json_rpc_errormsg ${json_rpc_errormsgdefine[$json_rpc_error]})\n");
 
 ?>
