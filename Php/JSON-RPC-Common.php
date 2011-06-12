@@ -63,7 +63,8 @@ function json_rpc_set_version($v) {
 	if($v === '1.1') {
 		$versionstr = 'version';
 		$version = '1.1';
-	} elsif($v === '2.0') {
+	}
+	else if($v === '2.0') {
 		$versionstr = 'jsonrpc';
 		$version = '2.0';
 	} else

@@ -57,16 +57,23 @@ sub json_rpc_stomp_init {
 }
 
 sub json_rpc_stomp_handle_callback {
-	my ($stompserver,$queuename, $dispatchfunc, $subopt) = @_;
+	my ($stompserver,$queuename, $dispatchfunc, $connopt,$subopt,$idle_proc) = @_;
 
 	return undef unless(defined($dispatchfunc) && ref($dispatchfunc) eq 'CODE'); # CODE
 
-	unless(json_rpc_stomp_init($stompserver,$queuename,$subopt)) {
+	unless(json_rpc_stomp_init($stompserver,$queuename,$connopt,$subopt)) {
 		warn "Can not create connection";
 		return undef;
 	}
 
 	while (1) {
+		if($json_rpc_call_timeout) {
+			unless($stomp->can_read({ timeout => $json_rpc_call_timeout })) {
+					print STDERR "Wait for request timeout, run idle proc.\n" if($json_rpc_debug);
+					&{$idle_proc} if($idle_proc && ref($idle_proc) eq 'CODE');
+				next;
+			}
+		}
 		my $msg = $stomp->receive_frame();
 
 		last if(!$msg);
@@ -77,10 +84,12 @@ sub json_rpc_stomp_handle_callback {
 			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n" if($json_rpc_debug);
 			my $request = json_rpc_parse_request($msg->body);
 			if(defined($request) && $request->{'method'}) { #call
+
 				my ($retval,$error,$errormsg) = &{$dispatchfunc}($request->{'method'},$request->{'params'},$request->{'id'});
 				$response = json_rpc_create_response($retval,
 					($error ? json_rpc_create_error($error,$errormsg):undef),$request->{'id'});
 				print STDERR "Got reply: $response\n" if($json_rpc_debug);
+
 			} elsif(defined($request) && $request->{'error'}) { #error
 				$response = json_rpc_create_response(undef,$request->{'error'},$request->{'id'});
 			}
@@ -93,73 +102,59 @@ sub json_rpc_stomp_handle_callback {
 }
 
 sub json_rpc_stomp_handle_hashcode {
-	my ($stompserver,$queuename, $hashfunc, $subopt) = @_;
+	my ($stompserver,$queuename, $hashfunc, $connopt,$subopt, $idle_proc) = @_;
 
 	return undef unless(defined($hashfunc) && ref($hashfunc) eq 'HASH'); # HASH of CODE
 
-	unless(json_rpc_stomp_init($stompserver,$queuename,$subopt)) {
-		warn "Can not create connection";
-		return undef;
-	}
+	my $callback = sub {
+		my $method = shift;
+		my @params = @_;
+		my ($retval,$error,$errormsg);
+		$retval = undef;
+		if (!defined($hashfunc->{$method})
+			|| ref($hashfunc->{$method}) ne 'CODE' ) { #No function
+			$error = JSON::RPC::Simple::Common::JSON_RPC_ERR_INVALID_FUNCTION;
+			$errormsg = "Function $method not found";
 
-	while (1) {
-		my $msg = $stomp->receive_frame();
-
-		last if(!$msg);
-		next if($msg->{command} ne 'MESSAGE');
-
-		if ($msg->headers->{'reply-to'}) {
-			my $response = undef;
-			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n" if($json_rpc_debug);
-			my $request = json_rpc_parse_request($msg->body);
-			if(defined($request) && $request->{'method'}) { #call
-				if (!defined($hashfunc->{$request->{'method'}})
-					|| ref($hashfunc->{$request->{'method'}}) ne 'CODE' ) { #No function
-					$response = json_rpc_create_response(undef,
-						json_rpc_create_error(JSON::RPC::Simple::Common::JSON_RPC_ERR_INVALID_FUNCTION),$request->{'id'});
-				} else {
-					my ($retval,$error,$errormsg) = &{$hashfunc->{$request->{'method'}}}(@{$request->{'params'}});
-					$response = json_rpc_create_response($retval,
-						($error ? json_rpc_create_error($error,$errormsg):undef),$request->{'id'});
-					print STDERR "Got reply: $response\n" if($json_rpc_debug);
-				}
-			} elsif(defined($request) && $request->{'error'}) { #error
-				$response = json_rpc_create_response(undef,$request->{'error'},$request->{'id'});
-			}
-			$response and $stomp->send({ destination => $msg->headers->{'reply-to'}, body => $response });
 		} else {
-			warn "Invalid RPC reply-to:".$msg->body;
+			($retval,$error,$errormsg) = &{$hashfunc->{$method}}(@params);
+			if($error) {
+				$errormsg .= $error;
+				$error = JSON::RPC::Simple::Common::JSON_RPC_ERR_APPLICATION_ERROR;
+			}
 		}
-	}
-	return 1;
+		return ($retval,$error,$errormsg);
+	};
+
+	return json_rpc_stomp_handle_callback($stompserver,$queuename,$callback,$subopt,$idle_proc);
 }
 
 sub json_rpc_stomp_handle {
-	my ($stompserver,$queuename, $module,$funclist, $subopt) = @_;
-	unless(json_rpc_stomp_init($stompserver,$queuename,$subopt)) {
-		warn "Can not create connection";
-		return undef;
-	}
+	my ($stompserver,$queuename,$module,$funclist, $connopt,$subopt,$idle_proc) = @_;
 
-	while (1) {
-		my $msg = $stomp->receive_frame();
+	$module = 'main' unless($module);
+	my %f;
+	%f = map { $_ => 1 } split(/[,\s\;]/,$funclist) if(defined($funclist));
 
-		last if(!$msg);
-		next if($msg->{command} ne 'MESSAGE');
-
-		if ($msg->headers->{'reply-to'}) {
-			print STDERR "Request from:". $msg->headers->{'reply-to'}.":". $msg->body."\n" if($json_rpc_debug);
-			my $retval = json_rpc_handle_msg($module,$funclist,$msg->body);
-			if(defined($retval)) { #//reply
-				print STDERR "Got reply: $retval\n" if($json_rpc_debug);
-				$stomp->send({ destination => $msg->headers->{'reply-to'}, body => $retval });
-			}
-		} else {
-			warn "Invalid RPC Invalid RPC reply-to:".$msg->body;
+	my $callback = sub {
+		my $method = shift;
+		my @params = @_;
+		my ($retval,$error,$errormsg);
+		$retval = undef;
+		if (!defined($f{$method})) {
+			return (undef,JSON::RPC::Simple::Common::JSON_RPC_ERR_UNLISTED_FUNCTION,"Function $method unlisted");
 		}
-	}
-	warn "Return";
-	return 1;
+
+		if(@params) {
+			$retval = eval ($module.'::'.$method.'(@params)');
+		}
+		else {
+			$retval = eval ($module.'::'.$method.'();');
+		}
+		return ($retval,$error,$errormsg);
+	};
+
+	return json_rpc_stomp_handle_callback($stompserver,$queuename,$callback,$subopt,$idle_proc);
 }
 
 1;
