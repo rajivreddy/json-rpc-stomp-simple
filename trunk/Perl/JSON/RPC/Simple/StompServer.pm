@@ -85,7 +85,7 @@ sub json_rpc_stomp_handle_callback {
 			my $request = json_rpc_parse_request($msg->body);
 			if(defined($request) && $request->{'method'}) { #call
 
-				my ($retval,$error,$errormsg) = &{$dispatchfunc}($request->{'method'},$request->{'params'});
+				my ($retval,$error,$errormsg) = &{$dispatchfunc}($request->{'method'},$request->{'params'},$request->{'id'});
 				$response = json_rpc_create_response($retval,
 					($error ? json_rpc_create_error($error,$errormsg):undef),$request->{'id'});
 				print STDERR "Got reply: $response\n" if($json_rpc_debug);
@@ -107,8 +107,8 @@ sub json_rpc_stomp_handle_hashcode {
 	return undef unless(defined($hashfunc) && ref($hashfunc) eq 'HASH'); # HASH of CODE
 
 	my $callback = sub {
-		my $method = shift;
-		my @params = @_;
+		my ($method,$params,$id) = @_;
+
 		my ($retval,$error,$errormsg);
 		$retval = undef;
 		if (!defined($hashfunc->{$method})
@@ -117,7 +117,7 @@ sub json_rpc_stomp_handle_hashcode {
 			$errormsg = "Function $method not found";
 
 		} else {
-			($retval,$error,$errormsg) = &{$hashfunc->{$method}}(@params);
+			($retval,$error,$errormsg) = &{$hashfunc->{$method}}(@{$params});
 			if($error) {
 				$errormsg .= $error;
 				$error = JSON::RPC::Simple::Common::JSON_RPC_ERR_APPLICATION_ERROR;
@@ -137,16 +137,16 @@ sub json_rpc_stomp_handle {
 	%f = map { $_ => 1 } split(/[,\s\;]/,$funclist) if(defined($funclist));
 
 	my $callback = sub {
-		my $method = shift;
-		my @params = @_;
+		my ($method,$params,$id) = @_;
+
 		my ($retval,$error,$errormsg);
 		$retval = undef;
 		if (!defined($f{$method})) {
 			return (undef,JSON::RPC::Simple::Common::JSON_RPC_ERR_UNLISTED_FUNCTION,"Function $method unlisted");
 		}
 
-		if(@params) {
-			$retval = eval ($module.'::'.$method.'(@params)');
+		if(@{$params}) {
+			$retval = eval ($module.'::'.$method.'(@{$params})');
 		}
 		else {
 			$retval = eval ($module.'::'.$method.'();');
