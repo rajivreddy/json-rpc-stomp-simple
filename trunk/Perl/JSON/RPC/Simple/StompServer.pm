@@ -57,7 +57,7 @@ sub json_rpc_stomp_init {
 }
 
 sub json_rpc_stomp_handle_callback {
-	my ($stompserver,$queuename, $dispatchfunc, $connopt,$subopt,$idle_proc) = @_;
+	my ($stompserver,$queuename,$dispatchfunc,$connopt,$subopt,$idle_proc) = @_;
 
 	return undef unless(defined($dispatchfunc) && ref($dispatchfunc) eq 'CODE'); # CODE
 
@@ -85,7 +85,7 @@ sub json_rpc_stomp_handle_callback {
 			my $request = json_rpc_parse_request($msg->body);
 			if(defined($request) && $request->{'method'}) { #call
 
-				my ($retval,$error,$errormsg) = &{$dispatchfunc}($request->{'method'},$request->{'params'},$request->{'id'});
+				my ($retval,$error,$errormsg) = &{$dispatchfunc}($request->{'method'},$request->{'params'});
 				$response = json_rpc_create_response($retval,
 					($error ? json_rpc_create_error($error,$errormsg):undef),$request->{'id'});
 				print STDERR "Got reply: $response\n" if($json_rpc_debug);
@@ -102,7 +102,7 @@ sub json_rpc_stomp_handle_callback {
 }
 
 sub json_rpc_stomp_handle_hashcode {
-	my ($stompserver,$queuename, $hashfunc, $connopt,$subopt, $idle_proc) = @_;
+	my ($stompserver,$queuename,$hashfunc,$connopt,$subopt,$idle_proc) = @_;
 
 	return undef unless(defined($hashfunc) && ref($hashfunc) eq 'HASH'); # HASH of CODE
 
@@ -126,11 +126,11 @@ sub json_rpc_stomp_handle_hashcode {
 		return ($retval,$error,$errormsg);
 	};
 
-	return json_rpc_stomp_handle_callback($stompserver,$queuename,$callback,$subopt,$idle_proc);
+	return json_rpc_stomp_handle_callback($stompserver,$queuename,$callback,$connopt,$subopt,$idle_proc);
 }
 
 sub json_rpc_stomp_handle {
-	my ($stompserver,$queuename,$module,$funclist, $connopt,$subopt,$idle_proc) = @_;
+	my ($stompserver,$queuename,$module,$funclist,$connopt,$subopt,$idle_proc) = @_;
 
 	$module = 'main' unless($module);
 	my %f;
@@ -154,7 +154,7 @@ sub json_rpc_stomp_handle {
 		return ($retval,$error,$errormsg);
 	};
 
-	return json_rpc_stomp_handle_callback($stompserver,$queuename,$callback,$subopt,$idle_proc);
+	return json_rpc_stomp_handle_callback($stompserver,$queuename,$callback,$connopt,$subopt,$idle_proc);
 }
 
 1;
