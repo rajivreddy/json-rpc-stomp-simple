@@ -20,8 +20,7 @@ BEGIN {
 
     &json_rpc_create_error
    	&json_rpc_create_request &json_rpc_parse_request
-   	&json_rpc_create_response &json_rpc_parse_response
-	&json_rpc_handle_msg);
+   	&json_rpc_create_response &json_rpc_parse_response);
    %EXPORT_TAGS = ( );     # eg: TAG => [ qw!name1 name2! ],
 
    # your exported package globals go here,
@@ -105,48 +104,6 @@ sub json_rpc_create_error {
         'message' => ($msg ? $msg : ($json_rpc_errormsgdefine{$code} ?
 			$json_rpc_errormsgdefine{$code} : 'Unknown error code '.$code))
 	};
-}
-
-sub json_rpc_handle_msg {
-	my ($module,$funclist,$requestdata) = @_;
-	$module = 'main' unless($module);
-
-	my $request = json_rpc_parse_request($requestdata);
-	if ($request->{'error'}) {
-		return json_rpc_create_response(undef,$request->{'error'},$request->{'id'});
-	}
-	($request->{'id'})
-		and $json_rpc_current_request_id = $request->{'id'}; #Assign ID
-	if (defined($funclist) && !defined($funclist->{$request->{'method'}})) {
-		return json_rpc_create_response(undef,
-			json_rpc_create_error(JSON_RPC_ERR_UNLISTED_FUNCTION),
-			$request->{'id'});
-	}
-	my $result;
-	if (defined($request->{'params'}) && ref($request->{'params'}) eq 'ARRAY') {
-		$result = eval ($module.'::'.$request->{'method'}.q|(@{$request->{'params'}});|);
-	}
-	elsif (defined($request->{'params'})) {
-		$result = eval ($module.'::'.$request->{'method'}.q|($request->{'params'});|);
-	}
-	else {
-		$result = eval ($module.'::'.$request->{'method'}.q|();|);
-	}
-	$json_rpc_current_request_id = ''; #Remove ID
-	if ($@) {
-		return json_rpc_create_response(undef,
-			json_rpc_create_error(JSON_RPC_ERR_APPLICATION_ERROR,$@),
-			$request->{'id'}
-			);
-	}
-
-	if ($request->{'id'}) { #Respone message
-		return json_rpc_create_response($result,
-			undef,
-			$request->{'id'}
-		);
-	}
-	return '';
 }
 
 sub json_rpc_create_request {
