@@ -22,7 +22,7 @@ function json_rpc_stomp_init($server = '',$connopt = null, $subopt = null) {
 		$server = $json_rpc_stompserver;
 	$json_rpc_stompconn = new StompConnection($server);
 	// connect
-	if(!$json_rpc_stompconn->connect($connopt)) {
+	if(!$json_rpc_stompconn->connect($connopt['login'],$connopt['passcode'])) {
 		$json_rpc_error = JSON_RPC_ERR_CONNECT_TRANSPORT;
 		$json_rpc_errormsg = $json_rpc_stompconn->error . "\n" .$json_rpc_stompconn->exception;
 		return false;
