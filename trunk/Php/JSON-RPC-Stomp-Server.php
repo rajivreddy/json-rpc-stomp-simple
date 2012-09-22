@@ -13,7 +13,7 @@ function json_rpc_stomp_handle($stompserver,$queuename, $funclist, ,$connopt = n
 		$opt = array_merge($opt,$supoption);
 	$json_rpc_stompconn = new StompConnection($stompserver);
 	// connect
-	if(!$json_rpc_stompconn->connect($connopt)) {
+	if(!$json_rpc_stompconn->connect($connopt['login'],$connopt['passcode'])) {
 		$json_rpc_error = JSON_RPC_ERR_CONNECT_TRANSPORT;
 		$json_rpc_errormsg = $json_rpc_stompconn->error . "\n" .$json_rpc_stompconn->exception;
 		return false;
